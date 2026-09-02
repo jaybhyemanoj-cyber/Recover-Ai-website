@@ -1,0 +1,43 @@
+# Node & Dependencies
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Environment Variables
+.env
+.env.local
+
+# Generated Screenshots (Keep sample only)
+static/screenshots/*
+!static/screenshots/fall_P101_sample.jpg
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
