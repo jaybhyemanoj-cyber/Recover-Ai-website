@@ -18,6 +18,9 @@ interface RecoveryAssistantModalProps {
   onClose: () => void;
 }
 
+let assistantMsgSeq = 1;
+const createMsgId = (type: string) => `${type}-${assistantMsgSeq++}`;
+
 export const RecoveryAssistantModal: React.FC<RecoveryAssistantModalProps> = ({ isOpen, onClose }) => {
   const { currentPatient, setEmergencyModalOpen } = useApp();
   const [language, setLanguage] = useState<'en' | 'hi'>('en');
@@ -59,14 +62,12 @@ export const RecoveryAssistantModal: React.FC<RecoveryAssistantModalProps> = ({ 
     }
   }, [messages, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleSend = async (textToSend?: string) => {
     const query = (textToSend || inputValue).trim();
     if (!query || isLoading) return;
 
     const userMsg: AssistantMessage = {
-      id: `usr-${Date.now()}`,
+      id: createMsgId('usr'),
       sender: 'user',
       text: query,
       language,
@@ -103,7 +104,7 @@ export const RecoveryAssistantModal: React.FC<RecoveryAssistantModalProps> = ({ 
 
       const data = await res.json();
       const botMsg: AssistantMessage = {
-        id: `bot-${Date.now()}`,
+        id: createMsgId('bot'),
         sender: 'assistant',
         text: data.response || (language === 'hi' ? 'कृपया अपने डॉक्टर से सलाह लें।' : 'Please consult your physician.'),
         language: data.language || language,
@@ -119,7 +120,7 @@ export const RecoveryAssistantModal: React.FC<RecoveryAssistantModalProps> = ({ 
         : `Hello ${currentPatient.name}! On Recovery Day ${currentPatient.recoveryDay}, please focus on scheduled rest, cold compression, and following Dr. ${currentPatient.doctorName}'s guidelines. Press SOS for acute symptoms.`;
 
       const botMsg: AssistantMessage = {
-        id: `bot-${Date.now()}`,
+        id: createMsgId('bot'),
         sender: 'assistant',
         text: fallbackText,
         language,
@@ -130,6 +131,8 @@ export const RecoveryAssistantModal: React.FC<RecoveryAssistantModalProps> = ({ 
       setIsLoading(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
