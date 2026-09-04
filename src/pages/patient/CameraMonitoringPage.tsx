@@ -23,7 +23,7 @@ import type { PhysioExerciseState } from '../../types';
 
 
 export const CameraMonitoringPage: React.FC = () => {
-  const { currentPatient, triggerSimulatedFall, setAssistantModalOpen } = useApp();
+  const { currentPatient, setAssistantModalOpen } = useApp();
   const [monitoringMode, setMonitoringMode] = useState<'live' | 'physio' | 'upload'>('live');
 
   // Live Telemetry state
