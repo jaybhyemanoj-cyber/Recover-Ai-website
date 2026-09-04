@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import type { UserRole } from '../../types';
-import { Activity, Bell, PhoneCall, ChevronDown, UserCheck, Stethoscope, HeartPulse, Shield, Home, LogIn, Bot } from 'lucide-react';
+import { Activity, Bell, PhoneCall, ChevronDown, UserCheck, Stethoscope, HeartPulse, Shield, Home, LogIn, Bot, LogOut } from 'lucide-react';
 import { NotificationDrawer } from '../ui/NotificationDrawer';
 
 export const Navbar: React.FC = () => {
   const { role, setRole, unreadAlertCount, setEmergencyModalOpen, setAssistantModalOpen, currentPatient, patientsList, setSelectedPatientId } = useApp();
+  const { user, logout } = useAuth();
 
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false);
@@ -172,6 +174,18 @@ export const Navbar: React.FC = () => {
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Portal Login</span>
+              </button>
+            )}
+
+            {/* Firebase Logout */}
+            {user && (
+              <button
+                onClick={logout}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                title={`Signed in as ${user.email}`}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
               </button>
             )}
           </div>

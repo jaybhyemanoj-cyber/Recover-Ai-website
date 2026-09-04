@@ -51,6 +51,24 @@ export const CameraMonitoringPage: React.FC = () => {
   });
 
   const [streamError, setStreamError] = useState(false);
+  const [isCameraEnabled, setIsCameraEnabled] = useState<boolean>(false);
+
+  const toggleCameraPower = async () => {
+    if (isCameraEnabled) {
+      try {
+        await fetch('http://localhost:5000/api/camera/stop', { method: 'POST' });
+        await fetch('http://localhost:5000/api/camera/pause', { method: 'POST' });
+      } catch {}
+      setIsCameraEnabled(false);
+    } else {
+      try {
+        await fetch('http://localhost:5000/api/camera/start', { method: 'POST' });
+        await fetch('http://localhost:5000/api/camera/resume', { method: 'POST' });
+      } catch {}
+      setIsCameraEnabled(true);
+      setStreamError(false);
+    }
+  };
 
   // Physiotherapy Coach State
   const [activeExercise, setActiveExercise] = useState<string>('knee_flexion');
@@ -75,9 +93,13 @@ export const CameraMonitoringPage: React.FC = () => {
 
   // Video Upload & Analysis state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<boolean>(false);
+  const videoPlayerRef = useRef<HTMLVideoElement | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState<string>('');
   const [videoAnalysisResult, setVideoAnalysisResult] = useState<{
+    success?: boolean;
     status: string;
     patient_id: string;
     video_filename: string;
@@ -87,6 +109,14 @@ export const CameraMonitoringPage: React.FC = () => {
     fall_detected: boolean;
     fall_confidence: number;
     max_fall_confidence?: number;
+    eventType?: string;
+    riskLevel?: string;
+    source?: string;
+    evidence_saved?: boolean;
+    screenshotUrl?: string | null;
+    ntfyTopic?: string;
+    ntfyStatus?: string;
+    ntfy_status?: string;
     timeline: Array<{
       timestamp: string;
       activity: string;
@@ -95,21 +125,36 @@ export const CameraMonitoringPage: React.FC = () => {
       details: string;
     }>;
     evidence_screenshots: string[];
+    incident?: any;
+    alert?: any;
     report?: {
       report_id: string;
       report_url: string;
       report_filename: string;
     };
-    ntfy_status: string;
     caregiver_phone?: string;
   } | null>(null);
 
   const [selectedEvidenceModal, setSelectedEvidenceModal] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Poll live camera and physio telemetry periodically
+  // Cleanup object URL on unmount to prevent memory leaks
   useEffect(() => {
-    if (monitoringMode === 'upload') return;
+    return () => {
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
+    };
+  }, [videoPreviewUrl]);
+
+  // Poll live camera and physio telemetry periodically & manage camera pause/resume state
+  useEffect(() => {
+    if (monitoringMode === 'upload' || !isCameraEnabled) {
+      fetch('http://localhost:5000/api/camera/pause', { method: 'POST' }).catch(() => {});
+      if (monitoringMode === 'upload' || !isCameraEnabled) return;
+    } else {
+      fetch('http://localhost:5000/api/camera/resume', { method: 'POST' }).catch(() => {});
+    }
 
     const fetchStatus = async () => {
       try {
@@ -130,7 +175,7 @@ export const CameraMonitoringPage: React.FC = () => {
     fetchStatus();
     const interval = setInterval(fetchStatus, 800);
     return () => clearInterval(interval);
-  }, [monitoringMode]);
+  }, [monitoringMode, isCameraEnabled]);
 
   // Handle Physiotherapy Exercise Switch
   const handleExerciseChange = async (exerciseKey: string) => {
@@ -171,7 +216,14 @@ export const CameraMonitoringPage: React.FC = () => {
   // Handle Video File Selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
+      const url = URL.createObjectURL(file);
+      setSelectedFile(file);
+      setVideoPreviewUrl(url);
+      setVideoError(false);
       setVideoAnalysisResult(null);
     }
   };
@@ -182,6 +234,12 @@ export const CameraMonitoringPage: React.FC = () => {
 
     setIsAnalyzing(true);
     setAnalysisProgress('Uploading video and initializing YOLOv8 Pose model...');
+
+    // Visibly play the uploaded video preview during analysis
+    if (videoPlayerRef.current) {
+      videoPlayerRef.current.currentTime = 0;
+      videoPlayerRef.current.play().catch(() => {});
+    }
 
     try {
       const formData = new FormData();
@@ -330,22 +388,56 @@ export const CameraMonitoringPage: React.FC = () => {
             <Bot className="w-4 h-4" />
             <span>AI Assistant (हिंदी/EN)</span>
           </button>
-
-          {monitoringMode === 'live' && (
-            <button
-              onClick={triggerSimulatedFall}
-              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-rose-600/30 transition-all flex items-center gap-2 shrink-0 active:scale-95"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              <span>Simulate Fall</span>
-            </button>
-          )}
         </div>
       </div>
 
       {/* ==================== MODE 1: LIVE WEBCAM MONITORING ==================== */}
       {monitoringMode === 'live' && (
         <div className="space-y-6">
+          
+          {/* CAMERA PERMISSION & ON/OFF TOGGLE SWITCH CARD */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className={`p-3 rounded-2xl border transition-all ${isCameraEnabled ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
+                {isCameraEnabled ? <Camera className="w-6 h-6 animate-pulse" /> : <EyeOff className="w-6 h-6" />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-extrabold text-sm text-white">Live Camera Control & Permission</h4>
+                  <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full ${isCameraEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
+                    {isCameraEnabled ? '🟢 CAMERA ACTIVE' : '🔴 CAMERA OFF'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {isCameraEnabled
+                    ? 'Webcam is active with live YOLO pose tracking. Click button to turn OFF and release camera.'
+                    : 'Camera is OFF by default for patient privacy. Click button to grant permission & start live webcam.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={toggleCameraPower}
+              className={`px-5 py-2.5 rounded-xl font-extrabold text-xs transition-all flex items-center gap-2 shrink-0 active:scale-95 shadow-md ${
+                isCameraEnabled
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+              }`}
+            >
+              {isCameraEnabled ? (
+                <>
+                  <EyeOff className="w-4 h-4" />
+                  <span>Turn OFF Camera</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-4 h-4" />
+                  <span>Turn ON Live Camera</span>
+                </>
+              )}
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             {/* Live Detection Stream Box */}
@@ -657,53 +749,116 @@ export const CameraMonitoringPage: React.FC = () => {
       {monitoringMode === 'upload' && (
         <div className="space-y-6">
           
-          {/* Upload Input Card */}
+          {/* Upload & Video Analysis Player Card */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-xl font-black text-slate-900">Upload Patient Room Video Footage</h2>
                 <p className="text-xs text-slate-500 mt-0.5">Supports MP4, AVI, MOV, MKV files. YOLO Pose analyzes kinematics frame-by-frame.</p>
               </div>
-            </div>
-
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-300 hover:border-teal-500 rounded-3xl p-8 text-center cursor-pointer transition-colors bg-slate-50/50 hover:bg-teal-50/20"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <FileVideo className="w-12 h-12 text-teal-600 mx-auto mb-3 animate-bounce" />
-              <div className="text-sm font-extrabold text-slate-900">
-                {selectedFile ? selectedFile.name : 'Click to select patient room footage or drag video here'}
-              </div>
-              <p className="text-xs text-slate-400 mt-1">Maximum file size: 100 MB • Sampling rate: ~10 FPS</p>
-            </div>
-
-            {selectedFile && !isAnalyzing && (
-              <div className="flex items-center justify-between bg-teal-50 p-4 rounded-2xl border border-teal-200">
-                <div className="text-xs text-teal-900">
-                  Ready to analyze <strong>{selectedFile.name}</strong> ({(selectedFile.size / (1024 * 1024)).toFixed(1)} MB)
-                </div>
+              {selectedFile && (
                 <button
-                  onClick={handleAnalyzeVideo}
-                  className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+                  onClick={() => {
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                    fileInputRef.current?.click();
+                  }}
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Activity className="w-4 h-4" />
-                  <span>Start AI Video Analysis</span>
+                  <Upload className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Choose Another Video</span>
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
-            {isAnalyzing && (
-              <div className="p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 text-center space-y-3">
-                <Loader2 className="w-8 h-8 text-teal-400 mx-auto animate-spin" />
-                <div className="text-sm font-extrabold">{analysisProgress}</div>
-                <p className="text-xs text-slate-400">Please wait while YOLOv8 Pose evaluates body keypoints...</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {!selectedFile ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-slate-300 hover:border-teal-500 rounded-3xl p-8 text-center cursor-pointer transition-colors bg-slate-50/50 hover:bg-teal-50/20"
+              >
+                <FileVideo className="w-12 h-12 text-teal-600 mx-auto mb-3 animate-bounce" />
+                <div className="text-sm font-extrabold text-slate-900">
+                  Click to select patient room footage or drag video here
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Maximum file size: 100 MB • Sampling rate: ~10 FPS</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Real HTML5 Video Player */}
+                <div className="relative rounded-2xl overflow-hidden bg-slate-950 aspect-video max-h-[460px] flex items-center justify-center border border-slate-800 shadow-inner">
+                  {videoPreviewUrl && (
+                    <video
+                      ref={videoPlayerRef}
+                      src={videoPreviewUrl}
+                      controls
+                      autoPlay
+                      muted
+                      playsInline
+                      loop
+                      onError={() => setVideoError(true)}
+                      className="w-full h-full object-contain mx-auto"
+                    />
+                  )}
+                  {videoError && (
+                    <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center text-slate-300 p-4 text-center">
+                      <AlertTriangle className="w-8 h-8 text-amber-400 mb-2" />
+                      <p className="text-sm font-bold">Unable to preview this video.</p>
+                      <p className="text-xs text-slate-400 mt-1">The video can still be analyzed by YOLOv8 Pose below.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Progress / Actions */}
+                {isAnalyzing ? (
+                  <div className="p-5 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-xs font-black uppercase tracking-wider text-emerald-400">🟢 AI Analysis In Progress</span>
+                      </div>
+                      <span className="text-xs text-slate-400 font-mono">Parallel YOLOv8 Inference</span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="w-5 h-5 text-teal-400 animate-spin flex-shrink-0" />
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-extrabold text-slate-100">{analysisProgress || 'Processing video frames...'}</div>
+                        <p className="text-xs text-slate-400">Evaluating 17 anatomical keypoints, center-of-mass drops, and posture kinematics in parallel.</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : !videoAnalysisResult ? (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-teal-50 p-4 rounded-2xl border border-teal-200">
+                    <div className="text-xs text-teal-900">
+                      Selected Video: <strong>{selectedFile.name}</strong> ({(selectedFile.size / (1024 * 1024)).toFixed(1)} MB)
+                    </div>
+                    <button
+                      onClick={handleAnalyzeVideo}
+                      className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer w-full sm:w-auto justify-center"
+                    >
+                      <Activity className="w-4 h-4" />
+                      <span>Start AI Video Analysis</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
+                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-950">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      <span>✓ Analysis Complete for <strong>{selectedFile.name}</strong></span>
+                    </div>
+                    <span className="text-xs text-emerald-700 font-semibold">Review full kinematic timeline and evidence report below</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -751,7 +906,7 @@ export const CameraMonitoringPage: React.FC = () => {
                 </div>
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">ntfy Push Status</span>
-                  <span className="text-lg font-black text-teal-700">{videoAnalysisResult.ntfy_status || 'Not Triggered'}</span>
+                  <span className="text-lg font-black text-teal-700">{videoAnalysisResult.ntfyStatus || videoAnalysisResult.ntfy_status || 'Not Triggered'}</span>
                 </div>
               </div>
 

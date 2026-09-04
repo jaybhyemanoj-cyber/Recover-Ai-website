@@ -19,9 +19,14 @@ venv/
 .env
 .env.local
 
-# Generated Screenshots (Keep sample only)
+# Generated Screenshots, Uploads & Reports (Keep sample only)
 static/screenshots/*
 !static/screenshots/fall_P101_sample.jpg
+static/uploads/*
+static/reports/*
+
+# Dataset CSVs
+dataset/*.csv
 
 # Logs
 *.log

@@ -276,7 +276,7 @@ export const LandingPage: React.FC = () => {
             <span className="font-bold text-white">RecoverAI Platform</span>
             <span>– Remote Recovery & Escalation System</span>
           </div>
-          <p>© 2026 RecoverAI Health Technologies. Designed for Web & Desktop Browsers.</p>
+          <p>Developed by CodeCraft team</p>
         </div>
       </footer>
 

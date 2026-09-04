@@ -132,6 +132,23 @@ export interface PhysioExerciseState {
   disclaimer: string;
 }
 
+export interface Appointment {
+  id: string;
+  patientId: string;
+  patientName: string;
+  doctorId: string;
+  doctorName: string;
+  specialty: string;
+  hospital: string;
+  distanceKm?: number;
+  date: string;
+  time: string;
+  status: 'confirmed' | 'rescheduled' | 'cancelled' | 'completed';
+  type: 'in_person' | 'video_consultation';
+  reason: string;
+  createdAt?: string;
+}
+
 export interface AssistantMessage {
   id: string;
   sender: 'user' | 'assistant';
@@ -139,5 +156,15 @@ export interface AssistantMessage {
   language: 'en' | 'hi';
   isEmergency?: boolean;
   timestamp: string;
+  actionType?: 'slots_list' | 'doctor_list' | 'appointment_card' | 'confirm_booking' | 'confirm_cancel' | 'upcoming_list';
+  actionData?: any;
+  quickReplies?: string[];
 }
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
 

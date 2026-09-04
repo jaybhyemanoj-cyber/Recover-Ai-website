@@ -1,0 +1,14 @@
+{
+  "dataset_rows": 294678,
+  "feature_count": 42,
+  "test_accuracy_pct": 99.96,
+  "train_accuracy_pct": 100.0,
+  "precision_pct": 99.96,
+  "recall_pct": 99.96,
+  "f1_score_pct": 99.96,
+  "fall_accuracy_pct": 99.98,
+  "fall_recall_pct": 99.89,
+  "fall_precision_pct": 100.0,
+  "model_type": "HistGradientBoostingClassifier",
+  "training_time_seconds": 97.95
+}

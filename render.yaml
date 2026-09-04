@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: recover-ai-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: NTFY_TOPIC
+        value: Healthnest
+      - key: CAREGIVER_PHONE
+        value: "+917498964628"
+      - key: YOLO_CONFIG_DIR
+        value: /tmp/Ultralytics

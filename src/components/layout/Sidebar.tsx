@@ -1,7 +1,8 @@
-import React from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard,
+  Calendar,
   HeartPulse,
   ClipboardCheck,
   FileText,
@@ -15,15 +16,18 @@ import {
   ShieldAlert,
   ChevronRight,
   ShieldCheck,
+  LogOut,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const { role, activeTab, setActiveTab, unreadAlertCount } = useApp();
+  const { user, logout } = useAuth();
 
   if (role === 'landing') return null;
 
   const patientNav = [
     { id: 'dashboard', label: 'Patient Dashboard', icon: LayoutDashboard },
+    { id: 'appointments', label: 'Doctor Appointments', icon: Calendar },
     { id: 'recovery', label: 'My Recovery Plan', icon: HeartPulse },
     { id: 'checkup', label: 'Daily Health Check', icon: ClipboardCheck, highlight: true },
     { id: 'prescription', label: 'Prescription', icon: FileText },
@@ -128,11 +132,21 @@ export const Sidebar: React.FC = () => {
 
       {/* User Info Footer */}
       <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
-        <div>
+        <div className="truncate mr-2">
           <div className="font-bold text-slate-800 text-xs">RecoverAI Platform</div>
-          <div className="text-[10px] text-slate-400">v2.4 Production UI</div>
+          <div className="text-[10px] text-slate-400 truncate" title={user?.email || 'v2.4 Production UI'}>
+            {user?.email || 'v2.4 Production UI'}
+          </div>
         </div>
-        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md">LIVE</span>
+        {user && (
+          <button
+            onClick={logout}
+            title="Sign Out of Firebase"
+            className="p-1.5 hover:bg-rose-100 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </aside>
   );
